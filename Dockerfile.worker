@@ -1,0 +1,31 @@
+# Dockerfile for Prefect Worker
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /opt/prefect
+
+# Install system dependencies including Docker CLI
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh \
+    && rm get-docker.sh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy flows directory
+COPY flows/ ./flows/
+
+# Create prefect user and add to docker group
+RUN useradd --create-home --shell /bin/bash prefect \
+    && usermod -aG docker prefect \
+    && chown -R prefect:prefect /opt/prefect
+
+USER prefect
+
+# Default command
+CMD ["prefect", "worker", "start", "--pool", "default-pool", "--type", "process"]

@@ -1,0 +1,25 @@
+# Dockerfile for Prefect Server
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /opt/prefect
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create prefect user
+RUN useradd --create-home --shell /bin/bash prefect
+RUN chown -R prefect:prefect /opt/prefect
+USER prefect
+
+# Expose port
+EXPOSE 4200
+
+# Default command (can be overridden in docker-compose)
+CMD ["prefect", "server", "start", "--host", "0.0.0.0"]

@@ -1,0 +1,25 @@
+# Dockerfile for Prefect Agent (Alternative to Worker)
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /opt/prefect
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy flows directory
+COPY flows/ ./flows/
+
+# Create prefect user
+RUN useradd --create-home --shell /bin/bash prefect
+RUN chown -R prefect:prefect /opt/prefect
+USER prefect
+
+# Default command
+CMD ["prefect", "agent", "start", "-q", "default"]
