@@ -4,14 +4,18 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /opt/prefect
 
-# Install system dependencies including Docker CLI
+# Install system dependencies including network utilities
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
-    && curl -fsSL https://get.docker.com -o get-docker.sh \
-    && sh get-docker.sh \
-    && rm get-docker.sh \
+    dnsutils \
+    net-tools \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
+
+# Install just the Docker client (lighter than full Docker)
+RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-20.10.9.tgz | \
+    tar -xzC /usr/local/bin --strip-components=1 docker/docker
 
 # Install Python dependencies
 COPY requirements.txt .
@@ -20,12 +24,36 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy flows directory
 COPY flows/ ./flows/
 
-# Create prefect user and add to docker group
+# Create prefect user
 RUN useradd --create-home --shell /bin/bash prefect \
-    && usermod -aG docker prefect \
     && chown -R prefect:prefect /opt/prefect
 
 USER prefect
 
-# Default command
-CMD ["prefect", "worker", "start", "--pool", "default-pool", "--type", "process"]
+# Enhanced health check and retry logic with better error handling
+CMD ["sh", "-c", "\
+    echo 'Starting Prefect worker...'; \
+    echo 'Checking network connectivity...'; \
+    nslookup prefect-server || echo 'DNS lookup failed'; \
+    ping -c 1 prefect-server || echo 'Ping failed'; \
+    \
+    echo 'Waiting for Prefect server to be ready...'; \
+    max_attempts=30; \
+    attempt=0; \
+    while [ $attempt -lt $max_attempts ]; do \
+        if curl -s --connect-timeout 5 --max-time 10 http://prefect-server:4200/api/health >/dev/null 2>&1; then \
+            echo 'Prefect server is ready!'; \
+            break; \
+        fi; \
+        attempt=$((attempt + 1)); \
+        echo \"Attempt $attempt/$max_attempts: Waiting for Prefect server...\"; \
+        sleep 10; \
+    done; \
+    \
+    if [ $attempt -eq $max_attempts ]; then \
+        echo 'Failed to connect to Prefect server after 30 attempts'; \
+        exit 1; \
+    fi; \
+    \
+    echo 'Starting Prefect worker...'; \
+    prefect worker start --pool default-pool --type process"]

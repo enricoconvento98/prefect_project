@@ -52,16 +52,14 @@ class StreamWindow:
         return datetime.now() - self.last_slide_time >= self.slide_interval
     
     def get_events_for_aggregation(self) -> List[StreamEvent]:
-        """Get current events in window for aggregation"""
-        self._cleanup_old_events()
+        """Get current events in window for aggregation"""        self._cleanup_old_events()
         self.last_slide_time = datetime.now()
         return list(self.events)
 
 
 @task
 def generate_high_frequency_stream(duration_seconds: int = 30, events_per_second: int = 10) -> List[StreamEvent]:
-    """Generate high-frequency stream events"""
-    logger = get_run_logger()
+    """Generate high-frequency stream events"""    logger = get_run_logger()
     logger.info(f"Generating high-frequency stream for {duration_seconds} seconds at {events_per_second} events/sec")
     
     events = []
@@ -98,8 +96,7 @@ def generate_high_frequency_stream(duration_seconds: int = 30, events_per_second
 
 @task
 def partition_stream_events(events: List[StreamEvent]) -> Dict[str, List[StreamEvent]]:
-    """Partition events by partition key for parallel processing"""
-    logger = get_run_logger()
+    """Partition events by partition key for parallel processing"""    logger = get_run_logger()
     
     partitioned = defaultdict(list)
     for event in events:
@@ -111,8 +108,7 @@ def partition_stream_events(events: List[StreamEvent]) -> Dict[str, List[StreamE
 
 @task
 def process_event_partition(partition_key: str, events: List[StreamEvent]) -> Dict[str, Any]:
-    """Process events in a single partition"""
-    logger = get_run_logger()
+    """Process events in a single partition"""    logger = get_run_logger()
     logger.info(f"Processing partition {partition_key} with {len(events)} events")
     
     # Initialize window for this partition
@@ -145,8 +141,7 @@ def process_event_partition(partition_key: str, events: List[StreamEvent]) -> Di
 
 
 def aggregate_window_events(events: List[StreamEvent], partition_key: str) -> Dict[str, Any]:
-    """Aggregate events within a window"""
-    if not events:
+    """Aggregate events within a window"""    if not events:
         return {}
     
     # Basic aggregations
@@ -215,8 +210,7 @@ def aggregate_window_events(events: List[StreamEvent], partition_key: str) -> Di
 
 @task
 def detect_anomalies(aggregations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Detect anomalies in aggregated data"""
-    logger = get_run_logger()
+    """Detect anomalies in aggregated data"""    logger = get_run_logger()
     logger.info(f"Analyzing {len(aggregations)} aggregations for anomalies")
     
     anomalies = []
@@ -255,3 +249,90 @@ def detect_anomalies(aggregations: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 "type": "high_response_time",
                 "value": mean_response_time,
                 "threshold": 2000,
+                "severity": "high"
+            })
+        
+        if detected_anomalies:
+            anomalies.append({
+                "partition_key": partition_key,
+                "window_start": aggregation.get("window_start"),
+                "window_end": aggregation.get("window_end"),
+                "anomalies": detected_anomalies
+            })
+            logger.warning(f"Anomalies detected in partition {partition_key}: {detected_anomalies}")
+    
+    if not anomalies:
+        logger.info("No anomalies detected in any aggregation.")
+    
+    return anomalies
+
+
+@task
+def report_anomalies(anomalies: List[Dict[str, Any]]):
+    """Report detected anomalies"""    logger = get_run_logger()
+    if anomalies:
+        logger.error(f"🚨 Detected {len(anomalies)} anomaly windows! 🚨")
+        for anomaly in anomalies:
+            logger.error(f"  Partition: {anomaly['partition_key']}, Window: {anomaly['window_start']} - {anomaly['window_end']}")
+            for det in anomaly['anomalies']:
+                logger.error(f"    - Type: {det['type']}, Value: {det['value']:.2f}, Severity: {det['severity']}")
+    else:
+        logger.info("No anomalies to report.")
+
+
+@flow(
+    name="stream-processing-pipeline",
+    task_runner=ConcurrentTaskRunner(),
+    description="A flow for simulating high-frequency stream processing with windowing and anomaly detection"
+)
+async def stream_processing_flow(
+    duration_seconds: int = 60,
+    events_per_second: int = 100
+):
+    """
+    Main stream processing flow.
+    
+    Args:
+        duration_seconds: How long to generate stream events for.
+        events_per_second: Number of events to generate per second.
+    """
+    logger = get_run_logger()
+    logger.info(f"Starting stream processing flow for {duration_seconds}s at {events_per_second} events/sec")
+    
+    # 1. Generate high-frequency stream events
+    raw_events = await generate_high_frequency_stream.submit(
+        duration_seconds=duration_seconds,
+        events_per_second=events_per_second
+    )
+    
+    # 2. Partition events for parallel processing
+    partitioned_events = await partition_stream_events.submit(raw_events)
+    
+    # 3. Process each partition concurrently
+    processing_results_futures = []
+    for partition_key, events_list in partitioned_events.items():
+        future = process_event_partition.submit(partition_key, events_list)
+        processing_results_futures.append(future)
+    
+    processing_results = []
+    for future in processing_results_futures:
+        result = await future.result()
+        processing_results.append(result)
+    
+    all_aggregations = []
+    for res in processing_results:
+        all_aggregations.extend(res.get("aggregations", []))
+    
+    logger.info(f"Total aggregations generated across all partitions: {len(all_aggregations)}")
+    
+    # 4. Detect anomalies in aggregated data
+    detected_anomalies = await detect_anomalies.submit(all_aggregations)
+    
+    # 5. Report anomalies
+    await report_anomalies.submit(detected_anomalies)
+    
+    logger.info("Stream processing flow completed.")
+
+
+if __name__ == "__main__":
+    asyncio.run(stream_processing_flow(duration_seconds=10, events_per_second=50))

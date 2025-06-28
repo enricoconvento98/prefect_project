@@ -27,75 +27,75 @@ setup:
 # Build Docker images
 build:
 	@echo "🏗️  Building Docker images..."
-	@docker-compose build
+	@docker compose build
 
 # Start services
 up:
 	@echo "🆙 Starting services..."
-	@docker-compose up -d
+	@docker compose up -d
 
 # Stop services
 down:
 	@echo "🛑 Stopping services..."
-	@docker-compose down
+	@docker compose down
 
 # Restart services
 restart:
 	@echo "🔄 Restarting services..."
-	@docker-compose restart
+	@docker compose restart
 
 # View logs
 logs:
-	@docker-compose logs
+	@docker compose logs
 
 # Follow logs
 logs-f:
-	@docker-compose logs -f
+	@docker compose logs -f
 
 # Deploy flows
 deploy:
 	@echo "📦 Deploying flows..."
-	@docker-compose exec prefect-server python /opt/prefect/deploy.py
+	@docker compose exec prefect-server python /opt/prefect/deploy.py
 
 # Clean up Docker resources
 clean:
 	@echo "🧹 Cleaning up Docker resources..."
-	@docker-compose down -v --remove-orphans
+	@docker compose down -v --remove-orphans
 	@docker system prune -f
 
 # Database shell
 db-shell:
 	@echo "🗄️  Accessing PostgreSQL shell..."
-	@docker-compose exec postgres psql -U prefect -d prefect
+	@docker compose exec postgres psql -U prefect -d prefect
 
 # Server shell
 server-shell:
 	@echo "🖥️  Accessing Prefect server shell..."
-	@docker-compose exec prefect-server bash
+	@docker compose exec prefect-server bash
 
 # Show status
 status:
 	@echo "📊 Service status:"
-	@docker-compose ps
+	@docker compose ps
 
 # Development commands
 dev-logs:
-	@docker-compose logs -f prefect-server prefect-worker
+	@docker compose logs -f prefect-server prefect-worker
 
 dev-restart:
-	@docker-compose restart prefect-server prefect-worker
+	@docker compose restart prefect-server prefect-worker
 
 # Flow management
 run-etl:
 	@echo "🔄 Running ETL pipeline..."
-	@docker-compose exec prefect-server prefect deployment run etl-pipeline-manual/etl-pipeline-manual
+	@docker compose exec prefect-server prefect deployment run etl-pipeline-manual/etl-pipeline-manual
 
 run-weather:
 	@echo "🌤️  Running weather monitoring..."
-	@docker-compose exec prefect-server prefect deployment run weather-monitoring-3h/weather-monitoring-3h
+	@docker compose exec prefect-server prefect deployment run weather-monitoring-3h/weather-monitoring-3h
 
 # Monitoring
 health-check:
 	@echo "🏥 Checking service health..."
 	@curl -f http://localhost:4200/api/health || echo "❌ Prefect server not healthy"
-	@docker-compose exec postgres pg_isready -U prefect || echo "❌ Database not ready"
+	@docker compose exec postgres pg_isready -U prefect || echo "❌ Database not ready"

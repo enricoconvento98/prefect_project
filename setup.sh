@@ -14,7 +14,7 @@ chmod +x setup.sh
 
 # Build and start services
 echo "🐳 Building and starting Docker services..."
-docker-compose up -d --build
+docker compose up -d --build
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start..."
@@ -34,11 +34,11 @@ export PREFECT_API_URL="http://localhost:4200/api"
 
 # Create work pool
 echo "🏊 Creating work pool..."
-docker-compose exec prefect-server prefect work-pool create default-pool --type process
+docker compose exec prefect-server prefect work-pool create default-pool --type process
 
 # Deploy flows
 echo "📦 Deploying flows..."
-docker-compose exec prefect-server python /opt/prefect/deploy.py
+docker compose exec prefect-server python /opt/prefect/deploy.py
 
 echo "🎉 Setup complete!"
 echo ""
@@ -48,7 +48,7 @@ echo "2. View your deployments and flows in the dashboard"
 echo "3. Trigger flows manually or wait for scheduled runs"
 echo ""
 echo "🔧 Useful commands:"
-echo "  View logs: docker-compose logs -f [service-name]"
-echo "  Stop services: docker-compose down"
-echo "  Restart services: docker-compose restart"
-echo "  Access database: docker-compose exec postgres psql -U prefect -d prefect"
+echo "  View logs: docker compose logs -f [service-name]"
+echo "  Stop services: docker compose down"
+echo "  Restart services: docker compose restart"
+echo "  Access database: docker compose exec postgres psql -U prefect -d prefect"

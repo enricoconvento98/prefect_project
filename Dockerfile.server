@@ -7,11 +7,16 @@ WORKDIR /opt/prefect
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Create and configure the UI build directory before switching users
+RUN mkdir -p /usr/local/lib/python3.11/site-packages/prefect/server/ui_build \
+    && chmod 777 /usr/local/lib/python3.11/site-packages/prefect/server/ui_build
 
 # Create prefect user
 RUN useradd --create-home --shell /bin/bash prefect
@@ -21,5 +26,5 @@ USER prefect
 # Expose port
 EXPOSE 4200
 
-# Default command (can be overridden in docker-compose)
+# Default command
 CMD ["prefect", "server", "start", "--host", "0.0.0.0"]

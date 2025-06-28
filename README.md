@@ -43,14 +43,14 @@ make deploy
 
 ```bash
 # Start the services
-docker-compose up -d --build
+docker compose up -d --build
 
 # Wait for services to be ready (about 30 seconds)
 # Create work pool
-docker-compose exec prefect-server prefect work-pool create default-pool --type process
+docker compose exec prefect-server prefect work-pool create default-pool --type process
 
 # Deploy flows
-docker-compose exec prefect-server python deploy.py
+docker compose exec prefect-server python deploy.py
 ```
 
 ## 📊 Accessing the Services
@@ -62,7 +62,7 @@ docker-compose exec prefect-server python deploy.py
 
 ```
 .
-├── docker-compose.yml          # Multi-service Docker setup
+├── docker compose.yml          # Multi-service Docker setup
 ├── Dockerfile.server          # Prefect server container
 ├── Dockerfile.worker          # Prefect worker container  
 ├── Dockerfile.agent           # Prefect agent container (alternative)
@@ -124,12 +124,12 @@ make health-check  # Check service health
 ### View Logs
 ```bash
 # All services
-docker-compose logs -f
+docker compose logs -f
 
 # Specific service
-docker-compose logs -f prefect-server
-docker-compose logs -f prefect-worker
-docker-compose logs -f postgres
+docker compose logs -f prefect-server
+docker compose logs -f prefect-worker
+docker compose logs -f postgres
 ```
 
 ### Check Service Health
@@ -139,7 +139,7 @@ make health-check
 
 # Manual check
 curl http://localhost:4200/api/health
-docker-compose exec postgres pg_isready -U prefect
+docker compose exec postgres pg_isready -U prefect
 ```
 
 ### Access Database
@@ -148,7 +148,7 @@ docker-compose exec postgres pg_isready -U prefect
 make db-shell
 
 # Manual access
-docker-compose exec postgres psql -U prefect -d prefect
+docker compose exec postgres psql -U prefect -d prefect
 ```
 
 ## 🔄 Running Flows
