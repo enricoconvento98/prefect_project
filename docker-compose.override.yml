@@ -1,0 +1,12 @@
+# Development-specific overrides
+services:
+  prefect-server:
+    volumes:
+      - prefect_data:/opt/prefect
+      - ./deploy.py:/opt/prefect/deploy.py
+      - ./flows:/opt/prefect/flows
+
+  prefect-worker:
+    volumes:
+      - ./flows:/opt/prefect/flows
+      - /var/run/docker.sock:/var/run/docker.sock

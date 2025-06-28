@@ -1,9 +1,7 @@
 """
-Example of a scheduled flow with deployments
+Example of a scheduled flow with modern Prefect deployments
 """
 from prefect import flow, task, get_run_logger
-from prefect.deployments import Deployment
-from prefect.server.schemas.schedules import CronSchedule
 from datetime import datetime, timedelta
 import requests
 
@@ -89,25 +87,17 @@ def weather_monitoring_flow(cities: list = None):
     return results
 
 
-# Create a deployment for scheduled execution
-def create_weather_deployment():
-    """Create a deployment with scheduling"""
-    deployment = Deployment.build_from_flow(
-        flow=weather_monitoring_flow,
-        name="weather-monitoring-daily",
-        schedule=CronSchedule(cron="0 8 * * *"),  # Run daily at 8 AM
-        work_queue_name="default",
-        parameters={"cities": ["London", "New York", "Tokyo", "Sydney", "Berlin"]},
-        tags=["weather", "scheduled", "monitoring"]
-    )
-    return deployment
-
-
 if __name__ == "__main__":
     # Test the flow locally
+    print("Testing flow locally...")
     result = weather_monitoring_flow()
     print(f"Weather monitoring result: {result}")
     
-    # Create and apply deployment
-    deployment = create_weather_deployment()
-    deployment.apply()
+    # Serve the flow with scheduling using the modern approach
+    print("Serving flow with schedule...")
+    weather_monitoring_flow.serve(
+        name="weather-monitoring-daily",
+        cron="0 8 * * *",  # Run daily at 8 AM
+        parameters={"cities": ["London", "New York", "Tokyo", "Sydney", "Berlin"]},
+        tags=["weather", "scheduled", "monitoring"]
+    )

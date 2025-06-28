@@ -1,88 +1,74 @@
 """
-Deployment script for Prefect flows
+Updated deployment script for Prefect flows using modern API
 """
-from prefect.deployments import Deployment
-from prefect.server.schemas.schedules import CronSchedule, IntervalSchedule
-from prefect.filesystems import LocalFileSystem
+from prefect import serve
+from datetime import timedelta
 from flows.example_flow import etl_pipeline, data_quality_flow
 from flows.scheduled_flow import weather_monitoring_flow
-import asyncio
 
 
-async def create_deployments():
-    """Create and apply all deployments"""
+def create_deployments():
+    """Create and serve all deployments using modern Prefect API"""
     
-    # Create file system block for storing flow code
-    fs_block = LocalFileSystem(basepath="/opt/prefect/flows")
-    await fs_block.save("local-flows", overwrite=True)
+    # Create deployments using flow.to_deployment()
+    deployments = []
     
-    # ETL Pipeline Deployment - Manual trigger
-    etl_deployment = Deployment.build_from_flow(
-        flow=etl_pipeline,
-        name="etl-pipeline-manual",
-        work_queue_name="default",
-        storage=fs_block,
-        parameters={
-            "sources": ["database_a", "api_b", "file_c"],
-            "destination": "data_warehouse"
-        },
-        tags=["etl", "manual", "data-pipeline"]
-    )
+    # # ETL Pipeline Deployment - Manual trigger
+    # etl_manual = etl_pipeline.to_deployment(
+    #     name="etl-pipeline-manual",
+    #     parameters={
+    #         "sources": ["database_a", "api_b", "file_c"],
+    #         "destination": "data_warehouse"
+    #     },
+    #     tags=["etl", "manual", "data-pipeline"],
+    #     description="ETL pipeline for manual execution"
+    # )
+    # deployments.append(etl_manual)
     
     # ETL Pipeline Deployment - Scheduled every 6 hours
-    etl_scheduled_deployment = Deployment.build_from_flow(
-        flow=etl_pipeline,
+    etl_scheduled = etl_pipeline.to_deployment(
         name="etl-pipeline-scheduled",
-        schedule=CronSchedule(cron="0 */6 * * *"),  # Every 6 hours
-        work_queue_name="default",
-        storage=fs_block,
+        cron="0 */6 * * *",  # Every 6 hours - use cron string directly
         parameters={
             "sources": ["database_a", "api_b", "file_c", "external_api"],
             "destination": "data_warehouse"
         },
-        tags=["etl", "scheduled", "data-pipeline"]
+        tags=["etl", "scheduled", "data-pipeline"],
+        description="ETL pipeline scheduled every 6 hours"
     )
+    deployments.append(etl_scheduled)
     
-    # Data Quality Check Deployment - Daily
-    quality_deployment = Deployment.build_from_flow(
-        flow=data_quality_flow,
-        name="data-quality-daily",
-        schedule=CronSchedule(cron="0 9 * * *"),  # Daily at 9 AM
-        work_queue_name="default",
-        storage=fs_block,
-        tags=["quality", "scheduled", "monitoring"]
-    )
+    # # Data Quality Check Deployment - Daily
+    # quality_daily = data_quality_flow.to_deployment(
+    #     name="data-quality-daily",
+    #     cron="0 9 * * *",  # Daily at 9 AM - use cron string directly
+    #     tags=["quality", "scheduled", "monitoring"],
+    #     description="Daily data quality checks at 9 AM"
+    # )
+    # deployments.append(quality_daily)
     
-    # Weather Monitoring Deployment - Every 3 hours
-    weather_deployment = Deployment.build_from_flow(
-        flow=weather_monitoring_flow,
-        name="weather-monitoring-3h",
-        schedule=IntervalSchedule(interval=10800),  # 3 hours in seconds
-        work_queue_name="default",
-        storage=fs_block,
-        parameters={
-            "cities": ["London", "New York", "Tokyo", "Sydney", "Berlin", "Paris"]
-        },
-        tags=["weather", "scheduled", "monitoring"]
-    )
+    # # Weather Monitoring Deployment - Every 3 hours
+    # weather_monitoring = weather_monitoring_flow.to_deployment(
+    #     name="weather-monitoring-3h",
+    #     interval=10800,  # 3 hours in seconds - use interval directly
+    #     parameters={
+    #         "cities": ["London", "New York", "Tokyo", "Sydney", "Berlin", "Paris"]
+    #     },
+    #     tags=["weather", "scheduled", "monitoring"],
+    #     description="Weather monitoring every 3 hours for major cities"
+    # )
+    # deployments.append(weather_monitoring)
     
-    # Apply all deployments
-    deployments = [
-        etl_deployment,
-        etl_scheduled_deployment,
-        quality_deployment,
-        weather_deployment
-    ]
-    
-    deployment_ids = []
+    print(f"🚀 Created {len(deployments)} deployments:")
     for deployment in deployments:
-        deployment_id = await deployment.apply()
-        deployment_ids.append(deployment_id)
-        print(f"✅ Applied deployment: {deployment.name} (ID: {deployment_id})")
+        print(f"  - {deployment.name}")
     
-    print(f"\n🎉 Successfully created {len(deployment_ids)} deployments!")
-    return deployment_ids
+    # Serve all deployments
+    print("\n🎯 Starting deployment server...")
+    serve(*deployments)
 
 
 if __name__ == "__main__":
-    asyncio.run(create_deployments())
+    import sys
+    
+    create_deployments()
