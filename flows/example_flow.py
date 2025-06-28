@@ -6,6 +6,7 @@ from prefect.task_runners import ConcurrentTaskRunner
 from typing import List
 import time
 import random
+from modules.database import Database
 
 
 @task(retries=3, retry_delay_seconds=2)
@@ -48,17 +49,47 @@ def transform_data(data: List[dict]) -> List[dict]:
     return transformed
 
 
+def _load_data_to_postgres(data: List[dict], table_name: str) -> int:
+    """Core logic to load data to a PostgreSQL database using the Database module."""
+    if not data:
+        return 0
+
+    try:
+        with Database() as db:
+            # Create table if it doesn't exist
+            columns = list(data[0].keys())
+            type_mapping = {
+                int: "INTEGER",
+                float: "REAL",
+                str: "TEXT",
+                bool: "BOOLEAN",
+            }
+            column_defs = [f'{col} {type_mapping.get(type(data[0][col]), "TEXT")}' for col in columns]
+            create_table_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(column_defs)});"
+            db.execute_query(create_table_sql)
+
+            # Prepare data for insertion
+            insert_query = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES %s"
+            values = [tuple(d.values()) for d in data]
+            db.execute_batch(insert_query, values)
+
+            return len(data)
+
+    except Exception as e:
+        raise  # Re-raise the exception to be caught by the Prefect task
+
 @task
 def load_data(data: List[dict], destination: str) -> int:
-    """Load data to destination"""
+    """Prefect task to load data to a PostgreSQL database."""
     logger = get_run_logger()
-    logger.info(f"Loading {len(data)} records to {destination}")
-    
-    # Simulate loading process
-    time.sleep(2)
-    
-    logger.info(f"Successfully loaded {len(data)} records to {destination}")
-    return len(data)
+    logger.info(f"Loading {len(data)} records to PostgreSQL table {destination}")
+    try:
+        record_count = _load_data_to_postgres(data, destination)
+        logger.info(f"Successfully loaded {record_count} records to {destination}")
+        return record_count
+    except Exception as e:
+        logger.error(f"Failed to load data to PostgreSQL: {e}")
+        raise
 
 
 @task
@@ -104,8 +135,13 @@ def etl_pipeline(sources: List[str] = None, destination: str = "data_warehouse")
     all_raw_data = []
     for future in raw_data_futures:
         data = future.result()
-        all_raw_data.extend(data)
-    
+        if data:
+            all_raw_data.extend(data)
+
+    if not all_raw_data:
+        logger.info("No data was extracted. Skipping transformation and loading.")
+        return {"status": "success", "records_processed": 0}
+        
     logger.info(f"Total raw records extracted: {len(all_raw_data)}")
     
     # Transform the combined data
@@ -142,7 +178,9 @@ def data_quality_flow():
 
 if __name__ == "__main__":
     # Run the flow locally for testing
-    result = etl_pipeline()
+    # You will need to set the following environment variables for this to work:
+    # POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+    result = etl_pipeline(destination="my_test_table")
     print(f"Pipeline result: {result}")
     
     quality_result = data_quality_flow()

@@ -33,6 +33,11 @@ services:
       PREFECT_SERVER_DATABASE_TIMEOUT: 10
       PREFECT_API_SERVICES_SCHEDULER_ENABLED: true
       PREFECT_SERVER_ANALYTICS_ENABLED: false
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: prefect
+      POSTGRES_USER: prefect
+      POSTGRES_PASSWORD: prefect
     depends_on:
       postgres:
         condition: service_healthy

@@ -24,15 +24,10 @@ setup:
 	@chmod +x setup.sh
 	@./setup.sh
 
-# Build Docker images
-build:
-	@echo "🏗️  Building Docker images..."
-	@docker compose build
-
 # Start services
 up:
-	@echo "🆙 Starting services..."
-	@docker compose up -d
+	@echo "🏗️  Building Docker images..."
+	@docker compose up -d --build
 
 # Stop services
 down:
@@ -85,17 +80,7 @@ dev-logs:
 dev-restart:
 	@docker compose restart prefect-server prefect-worker
 
-# Flow management
-run-etl:
-	@echo "🔄 Running ETL pipeline..."
-	@docker compose exec prefect-server prefect deployment run etl-pipeline-manual/etl-pipeline-manual
-
-run-weather:
-	@echo "🌤️  Running weather monitoring..."
-	@docker compose exec prefect-server prefect deployment run weather-monitoring-3h/weather-monitoring-3h
-
-# Monitoring
-health-check:
-	@echo "🏥 Checking service health..."
-	@curl -f http://localhost:4200/api/health || echo "❌ Prefect server not healthy"
-	@docker compose exec postgres pg_isready -U prefect || echo "❌ Database not ready"
+test:
+	@echo "Running tests..."
+	@echo "TEST_PATH: $(TEST_PATH)"
+	docker compose exec prefect-server python -m pytest -v --maxfail=1 $(or $(TEST_PATH),tests)

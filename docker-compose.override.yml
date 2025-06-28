@@ -5,6 +5,8 @@ services:
       - prefect_data:/opt/prefect
       - ./deploy.py:/opt/prefect/deploy.py
       - ./flows:/opt/prefect/flows
+      - ./modules:/opt/prefect/modules
+      - ./tests:/opt/prefect/tests
 
   prefect-worker:
     volumes:
